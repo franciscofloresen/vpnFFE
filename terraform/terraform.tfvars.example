@@ -1,0 +1,10 @@
+# AWS Configuration
+region = "us-east-1"
+az     = "us-east-1a"
+
+# EC2 Configuration
+ami_id   = ""  # Leave empty to auto-detect latest Ubuntu 22.04 ARM
+key_name = "vpn-key"
+
+# Security
+ssh_allowed_ip = ""  # Example: "203.0.113.0/32" or leave empty to disable SSH

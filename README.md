@@ -1,6 +1,6 @@
 # Secure WireGuard VPN on AWS with Terraform
 
-A production-ready, secure, and cost-effective WireGuard VPN infrastructure fully automated with Terraform on AWS. This project demonstrates professional cloud engineering skills including infrastructure as code, networking, security, and automation.
+A production-ready, secure, and cost-effective WireGuard VPN infrastructure fully automated with Terraform on AWS.
 
 ## 🎯 Project Overview
 
@@ -8,7 +8,7 @@ This project implements a modern VPN solution using WireGuard deployed on AWS in
 
 - **AWS Services**: VPC, EC2, Security Groups, Internet Gateway, Route Tables
 - **Infrastructure as Code**: Terraform for complete automation
-- **Cloud Security**: Minimal attack surface, encrypted tunnels, firewall rules
+- **Cloud Security**: Minimal attack surface, encrypted tunnels, IMDSv2, firewall rules
 - **Linux Administration**: Ubuntu Server, iptables, systemd
 - **Networking**: VPN protocols, NAT, IP forwarding, routing
 - **DevOps**: Automated provisioning and client management scripts
@@ -19,10 +19,20 @@ This project implements a modern VPN solution using WireGuard deployed on AWS in
 
 **Key Components:**
 - VPC with public subnet
-- EC2 instance running WireGuard
-- Security Group allowing only UDP 51820
-- Automated client provisioning
-- NAT for internet routing
+- EC2 instance running WireGuard (ARM-based for cost efficiency)
+- Security Group allowing only UDP 51820 (SSH optional, IP-restricted)
+- Automated client provisioning with QR code generation
+- NAT with iptables for internet routing
+
+## 🛡️ Security Features
+
+- **Minimal Attack Surface**: Only WireGuard port exposed
+- **SSH Disabled by Default**: Optional IP-restricted access
+- **IMDSv2 Required**: Protection against SSRF attacks
+- **Modern Cryptography**: WireGuard's state-of-the-art encryption (ChaCha20, Curve25519)
+- **Secure Key Storage**: Private keys with 600 permissions
+- **Dynamic Interface Detection**: No hardcoded network interfaces
+- **NAT with iptables**: Secure traffic forwarding
 
 ## 🚀 Technology Stack
 
@@ -32,9 +42,8 @@ This project implements a modern VPN solution using WireGuard deployed on AWS in
 | IaC | Terraform 1.5+ |
 | VPN Protocol | WireGuard |
 | OS | Ubuntu 22.04 LTS (ARM64) |
-| Instance Type | t4g.micro (ARM-based) |
+| Instance Type | t4g.micro (ARM-based, Free Tier eligible) |
 | Automation | Bash scripts |
-| Monitoring | CloudWatch (optional) |
 
 ## 📋 Prerequisites
 
@@ -52,103 +61,54 @@ aws ec2 create-key-pair --key-name vpn-key --query 'KeyMaterial' --output text >
 chmod 400 vpn-key.pem
 ```
 
-### 2. Deploy Infrastructure
+### 2. Configure Variables
 
 ```bash
 cd terraform
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your settings
+```
+
+### 3. Deploy Infrastructure
+
+```bash
 terraform init
-terraform plan
 terraform apply
 ```
 
-### 3. Get Server Public IP
+### 4. Create Client (after ~2 min setup)
 
 ```bash
-terraform output vpn_public_ip
+# SSH into server
+ssh -i ../vpn-key.pem ubuntu@$(terraform output -raw vpn_public_ip)
+
+# Create client
+sudo bash /opt/wireguard/scripts/create-client.sh myclient
 ```
 
-### 4. Wait for Setup (2-3 minutes)
+### 5. Connect
 
-The user_data script automatically installs and configures WireGuard.
-
-### 5. Generate Client Configuration
-
-SSH into the server:
-```bash
-ssh -i ../vpn-key.pem ubuntu@<PUBLIC-IP>
-```
-
-Create a client:
-```bash
-sudo bash /opt/wireguard/scripts/create-client.sh client1
-```
-
-This automatically generates:
-- Private/public key pair
-- Client configuration file (`client1.conf`)
-- QR code for mobile devices
-- Registers client with the server
-
-### 6. Download Client Config
+- **Mobile**: Scan the QR code displayed
+- **Desktop**: Download config and import into WireGuard client
 
 ```bash
-scp -i vpn-key.pem ubuntu@<PUBLIC-IP>:/opt/wireguard/clients/client1.conf .
+# Download config locally
+scp -i ../vpn-key.pem ubuntu@<IP>:/opt/wireguard/clients/myclient.conf .
 ```
-
-### 7. Connect
-
-**Desktop:**
-1. Install WireGuard client
-2. Import `client1.conf`
-3. Activate connection
-
-**Mobile:**
-1. Install WireGuard app
-2. Scan QR code or import config
-3. Connect
 
 ## 🔧 Configuration
 
 ### Variables
 
-Edit `terraform/variables.tf`:
+Edit `terraform/terraform.tfvars`:
 
 ```hcl
-variable "region" {
-  default = "us-east-1"
-}
-
-variable "az" {
-  default = "us-east-1a"
-}
-
-variable "ami_id" {
-  default = "ami-0a105b59f5c9471cb"  # Ubuntu 22.04 ARM
-}
-
-variable "ssh_allowed_ip" {
-  default = ""  # Leave empty to disable SSH
-}
-
-variable "key_name" {
-  default = "vpn-key"
-}
+region         = "us-east-1"
+az             = "us-east-1a"
+ami_id         = ""  # Auto-detects latest Ubuntu 22.04 ARM
+key_name       = "vpn-key"
+ssh_allowed_ip = "YOUR_IP/32"  # Leave empty to disable SSH
 ```
-
-### Security Group Rules
-
-- **UDP 51820**: WireGuard (open to 0.0.0.0/0)
-- **TCP 22**: SSH (optional, restricted by IP)
-- **Egress**: All traffic allowed
-
-## 🛡️ Security Features
-
-- **Minimal Attack Surface**: Only WireGuard port exposed
-- **SSH Disabled by Default**: Optional IP-restricted access
-- **Modern Cryptography**: WireGuard's state-of-the-art encryption
-- **NAT with iptables**: Secure traffic forwarding
-- **IP Forwarding**: Enabled only for wg0 interface
-- **Key Rotation**: Easy client key regeneration
 
 ## 📊 Cost Estimation
 
@@ -157,45 +117,20 @@ variable "key_name" {
 | t4g.micro instance | $0 - $6.13 (Free Tier eligible) |
 | EBS Storage (8 GB) | ~$0.80 |
 | Data Transfer (first 100 GB) | FREE |
-| Data Transfer (after 100 GB) | $0.09/GB |
 
-**Total**: 
-- **Free Tier**: ~$1/month (storage only)
-- **Without Free Tier**: ~$7-10/month (light usage)
-- **Heavy usage (500 GB/month)**: ~$43/month
+**Total**: ~$1/month with Free Tier, ~$7-10/month without
 
-## 📝 Management Scripts
+## 📝 Client Management
 
-### `create-client.sh`
-
-Automates client creation:
-- Generates cryptographic keys
-- Assigns incremental IP addresses (10.8.0.2, 10.8.0.3, etc.)
-- Creates configuration file
-- Displays QR code
-- Registers peer with server
-
-### `list-clients.sh`
-
-Lists all connected clients and their status.
-
-## 🔍 Monitoring
-
-Optional CloudWatch integration for:
-- Connection logs
-- Bandwidth metrics
-- Active client monitoring
-- Security event tracking
-
-## 🧪 Testing
-
-Verify VPN connection:
 ```bash
-# Check your public IP before connecting
-curl ifconfig.me
+# Create client
+sudo bash /opt/wireguard/scripts/create-client.sh <name>
 
-# Connect to VPN, then check again
-curl ifconfig.me  # Should show AWS region IP
+# List clients
+sudo bash /opt/wireguard/scripts/list-clients.sh
+
+# Remove client
+sudo bash /opt/wireguard/scripts/remove-client.sh <name>
 ```
 
 ## 📁 Project Structure
@@ -203,43 +138,42 @@ curl ifconfig.me  # Should show AWS region IP
 ```
 vpnFFE/
 ├── terraform/
-│   ├── main.tf           # Main infrastructure
-│   ├── variables.tf      # Input variables
-│   └── outputs.tf        # Output values
-├── scripts/
-│   ├── create-client.sh  # Client provisioning
-│   └── list-clients.sh   # Client management
+│   ├── main.tf                  # Infrastructure + embedded scripts
+│   ├── variables.tf             # Input variables with validation
+│   ├── outputs.tf               # Output values
+│   └── terraform.tfvars.example # Example configuration
+├── scripts/                     # Reference scripts (deployed via user_data)
+│   ├── create-client.sh
+│   ├── list-clients.sh
+│   └── remove-client.sh
 ├── architecture/
-│   └── architecture-diagram.txt
+│   └── diagram.jpg
 └── README.md
+```
+
+## 🧪 Verify Connection
+
+```bash
+# Before VPN
+curl ifconfig.me  # Shows your real IP
+
+# After connecting to VPN
+curl ifconfig.me  # Shows AWS server IP
 ```
 
 ## 🚧 Future Enhancements
 
-- **Multi-Region Deployment**: VPN servers in US/EU/APAC
-- **High Availability**: Auto Scaling Group with health checks
-- **Monitoring Dashboard**: CloudWatch dashboards and alarms
-- **CI/CD Pipeline**: GitHub Actions for automated deployments
-- **Containerization**: Migrate to ECS/Fargate
-- **DNS Management**: Route53 integration
-- **Certificate Management**: Automated key rotation
-- **Client Portal**: Web UI for self-service provisioning
-
-## 🤝 Contributing
-
-This is a portfolio project, but suggestions and improvements are welcome via issues or pull requests.
+- Multi-region deployment
+- High availability with Auto Scaling
+- CloudWatch monitoring dashboard
+- CI/CD with GitHub Actions
+- Route53 DNS integration
 
 ## 📄 License
 
-MIT License - feel free to use this project for learning or production purposes.
+MIT License
 
 ## 👤 Author
 
 Francisco Flores Enriquez  
 Computer Systems Engineering Student
-
----
-
-**Note**: This project is designed for educational and professional portfolio purposes. Always follow security best practices and compliance requirements for production deployments.
-
-
