@@ -57,7 +57,14 @@ User Device (Laptop/Phone)
 
 ## 🚀 Quick Start
 
-### 1. Deploy Infrastructure
+### 1. Create SSH Key Pair
+
+```bash
+aws ec2 create-key-pair --key-name vpn-key --query 'KeyMaterial' --output text > vpn-key.pem
+chmod 400 vpn-key.pem
+```
+
+### 2. Deploy Infrastructure
 
 ```bash
 cd terraform
@@ -66,17 +73,21 @@ terraform plan
 terraform apply
 ```
 
-### 2. Get Server Public IP
+### 3. Get Server Public IP
 
 ```bash
 terraform output vpn_public_ip
 ```
 
-### 3. Generate Client Configuration
+### 4. Wait for Setup (2-3 minutes)
+
+The user_data script automatically installs and configures WireGuard.
+
+### 5. Generate Client Configuration
 
 SSH into the server:
 ```bash
-ssh ubuntu@<PUBLIC-IP>
+ssh -i ../vpn-key.pem ubuntu@<PUBLIC-IP>
 ```
 
 Create a client:
@@ -90,13 +101,13 @@ This automatically generates:
 - QR code for mobile devices
 - Registers client with the server
 
-### 4. Download Client Config
+### 6. Download Client Config
 
 ```bash
-scp ubuntu@<PUBLIC-IP>:/opt/wireguard/clients/client1.conf .
+scp -i vpn-key.pem ubuntu@<PUBLIC-IP>:/opt/wireguard/clients/client1.conf .
 ```
 
-### 5. Connect
+### 7. Connect
 
 **Desktop:**
 1. Install WireGuard client
@@ -123,8 +134,16 @@ variable "az" {
   default = "us-east-1a"
 }
 
+variable "ami_id" {
+  default = "ami-0a105b59f5c9471cb"  # Ubuntu 22.04 ARM
+}
+
 variable "ssh_allowed_ip" {
   default = ""  # Leave empty to disable SSH
+}
+
+variable "key_name" {
+  default = "vpn-key"
 }
 ```
 
@@ -147,11 +166,15 @@ variable "ssh_allowed_ip" {
 
 | Resource | Monthly Cost (USD) |
 |----------|-------------------|
-| t4g.micro instance | $0 - $6 (Free Tier eligible) |
-| Elastic IP | $0 (while attached) |
-| Data Transfer | ~$0.09/GB outbound |
+| t4g.micro instance | $0 - $6.13 (Free Tier eligible) |
+| EBS Storage (8 GB) | ~$0.80 |
+| Data Transfer (first 100 GB) | FREE |
+| Data Transfer (after 100 GB) | $0.09/GB |
 
-**Total**: Approximately $3-10/month depending on usage
+**Total**: 
+- **Free Tier**: ~$1/month (storage only)
+- **Without Free Tier**: ~$7-10/month (light usage)
+- **Heavy usage (500 GB/month)**: ~$43/month
 
 ## 📝 Management Scripts
 
@@ -225,7 +248,7 @@ MIT License - feel free to use this project for learning or production purposes.
 ## 👤 Author
 
 Francisco Flores Enriquez  
-Cloud Engineer | DevOps Specialist
+Computer Systems Engineering Student
 
 ---
 
