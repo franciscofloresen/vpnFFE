@@ -1,0 +1,43 @@
+                          ┌──────────────────────────────────┐
+                          │            Usuario                │
+                          │  (Laptop / Teléfono / Tablet)     │
+                          └───────────────┬──────────────────┘
+                                          │
+                                          │ 1. Conexión WireGuard
+                                          │    (túnel cifrado)
+                                          ▼
+                         ┌──────────────────────────────────────┐
+                         │         AWS Cloud (Región X)          │
+                         │                                      │
+                         │  ┌────────────────────────────────┐   │
+                         │  │           VPC Privada          │   │
+                         │  │   (subred pública segura)      │   │
+                         │  └─────────────────┬──────────────┘   │
+                         │                    │                   │
+                         │                    │2. Tráfico VPN     │
+                         │                    ▼                   │
+                         │     ┌────────────────────────────┐     │
+                         │     │ EC2 Instance (t4g.micro)   │     │
+                         │     │  Ubuntu Server             │     │
+                         │     │  ─ WireGuard Server        │     │
+                         │     │  ─ Firewall (iptables)     │     │
+                         │     │  ─ CloudWatch Agent        │     │
+                         │     └───────────┬────────────────┘     │
+                         │                 │                      │
+                         │                 │3. Logs / Métricas    │
+                         │                 ▼                      │
+                         │     ┌────────────────────────────┐     │
+                         │     │   Amazon CloudWatch Logs    │     │
+                         │     │   - Logs de conexión        │     │
+                         │     │   - Dashboard VPN           │     │
+                         │     └────────────────────────────┘     │
+                         │                                        │
+                         └────────────────────────────────────────┘
+                                          │
+                                          │ 4. Tráfico ya enrutado
+                                          │    según región
+                                          ▼
+                           ┌─────────────────────────────────────┐
+                           │    Internet con IP del país X       │
+                           │ (para seguridad + contenido regional)│
+                           └─────────────────────────────────────┘
