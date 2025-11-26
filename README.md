@@ -15,19 +15,7 @@ This project implements a modern VPN solution using WireGuard deployed on AWS in
 
 ## 🏗️ Architecture
 
-```
-User Device (Laptop/Phone)
-        ↓
-   WireGuard Client
-        ↓ (encrypted tunnel)
-   AWS EC2 t4g.micro
-   - Ubuntu 22.04 ARM
-   - WireGuard Server
-   - iptables NAT/Forwarding
-   - CloudWatch Logs (optional)
-        ↓
-   Internet (AWS region IP)
-```
+![VPN Architecture Diagram](images/diagram,.jpg)
 
 **Key Components:**
 - VPC with public subnet
