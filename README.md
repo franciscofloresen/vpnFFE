@@ -15,7 +15,7 @@ This project implements a modern VPN solution using WireGuard deployed on AWS in
 
 ## 🏗️ Architecture
 
-![VPN Architecture Diagram](images/diagram,.jpg)
+![VPN Architecture Diagram](architecture/diagram.jpg)
 
 **Key Components:**
 - VPC with public subnet
